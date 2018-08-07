@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OfficeOpenXml;
+using System;
 using System.IO;
 using System.Linq;
 using System.Xml;
@@ -10,11 +11,11 @@ namespace xml_converter
     {
         private static XmlDocument doc;
         private static String path;
-        
+
         public Finder(String p, XmlDocument d)
         {
             path = p;
-            doc = d;            
+            doc = d;
         }
 
         // make ugly xmls beautiful

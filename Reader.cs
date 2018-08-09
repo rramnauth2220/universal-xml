@@ -21,11 +21,10 @@ namespace xml_converter
         public void ReadDir()
         {
             List<List<String>> tags = new List<List<String>>();
-
+            StreamWriter heads = new StreamWriter (dir + "/meta_data/meta.txt");
             foreach (String file in Directory.EnumerateFiles(dir, "*.txt"))
             {
-                tags.Add(ReadFile(file));
-                //tags.Add(Tags(file)); //must call off of generated files
+                tags.Add(ReadFile(file, heads));
             }
 
             List<String> flatList = tags.SelectMany(v => v).ToList();
@@ -38,6 +37,7 @@ namespace xml_converter
 
             all_tags.Close();
             unique_tags.Close();
+            heads.Close();
         }
 
         // gathers meta for schema:: ?attributes
@@ -48,6 +48,7 @@ namespace xml_converter
                 XmlDocument f = new XmlDocument();
                 f.Load(file);
                 XmlNodeList entries = f.GetElementsByTagName("*");
+                
                 //StreamWriter all_tags = new StreamWriter("all_tags.txt");
                 foreach (XmlNode n in entries)
                 {
@@ -63,39 +64,43 @@ namespace xml_converter
         }
 
         // flatten nested xml format with meta while perserving hierarchy
-        private List<String> ReadFile(String file)
+        private List<String> ReadFile(String file, StreamWriter heads)
         {
             String source = file;
             int i = 0;
 
             String content = File.ReadAllText(source);
             String[] contents = content.Split("--yytet00pubSubBoundary00tetyy");
+            //Console.WriteLine("contents.length = " + contents.Length);
             String destination = "";
             StreamWriter dest = null;
 
             String header = "";
             String description = "";
 
-            StreamWriter heads = new StreamWriter(Path.GetDirectoryName(source) + "/meta_data/meta" + ".txt");
-
+            //StreamWriter heads = new StreamWriter(Path.GetDirectoryName(source) + "/meta_data/meta" + ".txt");
             foreach (String c in contents)
             {
                 destination = Path.GetFileNameWithoutExtension(file) + "-" + i++;
-
+                Console.Write(">" + source);
                 int positionOfXML = c.IndexOf("<?xml");
+                //Console.WriteLine(">" + positionOfXML);
+                Console.Write(" > " + destination + "\n");
                 try
                 {
-                    header = destination + ".txt \n\t" + c.Substring(0, positionOfXML);
+                    header += destination + ".txt " + c.Substring(0, positionOfXML);
                     description = c.Substring(positionOfXML);
-                    heads.WriteLine(header);
+                    //heads.Write("\n" + header);
+                    //Console.WriteLine("     + " + header);
                 }
                 catch (Exception e) { }
 
                 dest = new StreamWriter(Path.GetDirectoryName(source) + "/generated_files/" + destination + ".xml");
                 dest.WriteLine(description);
                 dest.Close();
+                //heads.Close();
             }
-            heads.Close();
+            heads.Write(header);
             dest.Close();
 
             return Tags(Path.GetDirectoryName(source) + "/generated_files/" + destination + ".xml");

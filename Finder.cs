@@ -61,7 +61,7 @@ namespace xml_converter
             //XmlNodeList nodes = node.ChildNodes;
             foreach (XmlNode node in nodes)
             {
-                s.Write(node.Name + ": " + node.Value);
+                s.Write((node.Name + ": " + node.Value).Trim());
 
                 XmlAttributeCollection attributes = node.Attributes;
                 try

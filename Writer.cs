@@ -1,5 +1,6 @@
 ﻿using OfficeOpenXml;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -97,7 +98,7 @@ namespace xml_converter
         }
 
         // prepare workbook for narrow data
-        public void NarrowHeaders(String identifier)
+        public void NarrowHeaders()
         {
             var ws = p.Workbook.Worksheets.Add("Narrow Data");
             ws.Row(1).Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
@@ -112,14 +113,47 @@ namespace xml_converter
 
             ws.Cells[1, 1].Value = "#";
             ws.Cells[1, 2].Value = "Source";
-            ws.Cells[1, 3].Value = "Node Name";
-            ws.Cells[1, 4].Value = "Node Value";
+            ws.Cells[1, 3].Value = "Content Info";
+            ws.Cells[1, 4].Value = "Parent Node";
+            ws.Cells[1, 5].Value = "Node Name";
+            ws.Cells[1, 6].Value = "Node Value";
 
-            NarrowContents(identifier);
+            NarrowContents();
+        }
+
+        public int[] FindIndex(Array haystack, object needle)
+        {
+            if (haystack.Rank == 1)
+                return new[] { Array.IndexOf(haystack, needle) };
+
+            var found = haystack.OfType<object>()
+                              .Select((v, i) => new { v, i })
+                              .FirstOrDefault(s => s.v.Equals(needle));
+            if (found == null)
+                throw new Exception("needle not found in set");
+
+            var indexes = new int[haystack.Rank];
+            var last = found.i;
+            var lastLength = Enumerable.Range(0, haystack.Rank)
+                                       .Aggregate(1,
+                                           (a, v) => a * haystack.GetLength(v));
+            for (var rank = 0; rank < haystack.Rank; rank++)
+            {
+                lastLength = lastLength / haystack.GetLength(rank);
+                var value = last / lastLength;
+                last -= value * lastLength;
+
+                var index = value + haystack.GetLowerBound(rank);
+                if (index > haystack.GetUpperBound(rank))
+                    throw new IndexOutOfRangeException();
+                indexes[rank] = index;
+            }
+
+            return indexes;
         }
 
         // get as narrow as possible
-        private void NarrowContents(String id)
+        private void NarrowContents()
         {
             // @params id which makes node.values meaningful (e.g., regulatory body/title)
 
@@ -127,7 +161,12 @@ namespace xml_converter
             String line;
             int row = 2;
             String value = "";
+            String reg_body = "";
+            String content = "";
             StreamReader r;
+           // Boolean f = false; // if start of new file
+            //String[] files = ReadMeta(dir + "meta_data/meta.txt");
+
             foreach (String file in Directory.EnumerateFiles(ndir, "*.txt"))
             {
                 r = new StreamReader(file);
@@ -136,9 +175,26 @@ namespace xml_converter
                 while ((line = sc.ReadLine()) != null)
                 {
                     value = "";
+                    
                     try
                     {
                         String peekLine = sc.PeekLine();
+                        //if (line.Substring(0, line.IndexOf(":")).Equals("feed"))
+                        //{ //get regulatory body
+                        //    f = false;
+                        //}
+                        //else
+                        //{
+                            if (line.Substring(0, line.IndexOf(":")).Equals("citeForThisResource"))
+                            { //get regulatory body
+                                reg_body = peekLine.Substring(peekLine.IndexOf(":") + 1).Trim();
+                            }
+                            if (line.Substring(0, line.IndexOf(":")).Equals("content") && line.Substring(line.IndexOf(":")).Length > 5)
+                            { //get regulatory body
+                                content = line.Substring(line.IndexOf(":") + 1).Trim();
+                                //f = true;
+                            }
+                        //}
                         if (line.Contains(" [ "))  //if attributes exist
                         {
                             value = line.Substring(line.IndexOf(":") + 1).Trim();
@@ -153,17 +209,24 @@ namespace xml_converter
                         {
                             Write((row-1).ToString(), 1, row);
                             Write(Path.GetFileNameWithoutExtension(file), 2, row); // file
-                            Write(line.Substring(0, line.IndexOf(":")), 3, row); // tag
-                            Write(value, 4, row); // text/attribute(s)
+                            //if (f)
+                            //{
+                                Write(content, 3, row);
+                                Write(reg_body, 4, row);
+                            //}
+                            
+                            Write(line.Substring(0, line.IndexOf(":")), 5, row); // tag
+                            Write(System.Text.RegularExpressions.Regex.Replace(value, @"\s+", " "), 6, row); // text/attribute(s)
                             row++;
                         }
                     }
-                    catch (Exception e) { Console.WriteLine(e); };
+                    catch (Exception e) { };
                 }
+                r.Close();
                 p.SaveAs(new FileInfo(dir + "narrow_output.xlsx"));
             }
         }
-        
+
         // write cell data
         private void Write(String value, int col, int row)
         {
@@ -195,6 +258,7 @@ namespace xml_converter
                     return line.Substring(line.IndexOf(":") + 2);
                 }
             }
+            sr.Close();
             return "";
         }
 

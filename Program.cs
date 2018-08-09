@@ -22,7 +22,7 @@ namespace xml_converter
                 try
                 {
                     s = new StreamWriter("test_files/content_files/" + Path.GetFileNameWithoutExtension(file) + "_content.txt");
-                    Console.WriteLine("Reading " + Path.GetFileNameWithoutExtension(file));
+                    //Console.WriteLine("Reading " + Path.GetFileNameWithoutExtension(file));
 
                     XmlDocument d = new XmlDocument();
                     d.Load(file);
@@ -31,14 +31,14 @@ namespace xml_converter
                     //nf.Beautify(); //beautified directory
                     nf.TraverseNodes(d.ChildNodes, s);  //content directory
 
-                    s.Close();
+                    
                 }
                 catch (Exception e) { }
+                s.Close();
             } 
-
-            //String h = "C:/Users/Rebecca Ramnauth/source/repos/xml_converter/xml_converter/test_files/meta_data/unique_tags.txt";
+            
             Writer w = new Writer(dir);
-            w.NarrowHeaders("");
+            w.NarrowHeaders();
 
             //Cleaner c = new Cleaner(dir + "output.xlsx");
         }

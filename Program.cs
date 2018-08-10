@@ -12,7 +12,7 @@ namespace xml_converter
             String dir = "test_files/";
 
             Reader r = new Reader(dir);
-            r.ReadDir();  //generated directory 
+            /*r.ReadDir();  //generated directory 
              
 
             StreamWriter s = null;
@@ -35,7 +35,7 @@ namespace xml_converter
                 }
                 catch (Exception e) { }
                 s.Close();
-            } 
+            } */
             
             Writer w = new Writer(dir);
             w.NarrowHeaders();

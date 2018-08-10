@@ -100,7 +100,7 @@ namespace xml_converter
         // prepare workbook for narrow data
         public void NarrowHeaders()
         {
-            var ws = p.Workbook.Worksheets.Add("Narrow Data");
+            var ws = p.Workbook.Worksheets.Add("Content Values");
             ws.Row(1).Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
             ws.Row(1).Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.MidnightBlue);
             ws.Row(1).Style.Font.Color.SetColor(System.Drawing.Color.White);
@@ -112,11 +112,15 @@ namespace xml_converter
             ws.Cells.Style.Font.Size = 10;
 
             ws.Cells[1, 1].Value = "#";
-            ws.Cells[1, 2].Value = "Source";
-            ws.Cells[1, 3].Value = "Content Info";
+            //ws.Cells[1, 2].Value = "Source";
+            ws.Cells[1, 2].Value = "Content ID";
+            ws.Cells[1, 3].Value = "Date Last Updated";
             ws.Cells[1, 4].Value = "Parent Node";
-            ws.Cells[1, 5].Value = "Node Name";
-            ws.Cells[1, 6].Value = "Node Value";
+            ws.Cells[1, 5].Value = "Subcontent ID";
+            ws.Cells[1, 6].Value = "Subcontent Type";
+            ws.Cells[1, 7].Value = "Subcontent Citation";
+            ws.Cells[1, 8].Value = "Node Name";
+            ws.Cells[1, 9].Value = "Node Value";
 
             NarrowContents();
         }
@@ -162,9 +166,15 @@ namespace xml_converter
             int row = 2;
             String value = "";
             String reg_body = "";
-            String content = "";
+            String content_id = "";
+            String dc_id = "";
+            String cite_normalized = "";
+            String cite_type = "";
+            String cite_id = "";
             StreamReader r;
-           // Boolean f = false; // if start of new file
+            int start = 0;
+            Boolean prop;
+            Boolean f = false; // if start of new file
             //String[] files = ReadMeta(dir + "meta_data/meta.txt");
 
             foreach (String file in Directory.EnumerateFiles(ndir, "*.txt"))
@@ -175,48 +185,88 @@ namespace xml_converter
                 while ((line = sc.ReadLine()) != null)
                 {
                     value = "";
+                    prop = false;
                     
                     try
                     {
                         String peekLine = sc.PeekLine();
-                        //if (line.Substring(0, line.IndexOf(":")).Equals("feed"))
-                        //{ //get regulatory body
-                        //    f = false;
-                        //}
-                        //else
-                        //{
+                        if (line.Substring(0, line.IndexOf(":")).Equals("xml"))
+                        { //get regulatory body
+                            dc_id = "";
+                            f = false;
+                        }
+                        else
+                        {
                             if (line.Substring(0, line.IndexOf(":")).Equals("citeForThisResource"))
                             { //get regulatory body
                                 reg_body = peekLine.Substring(peekLine.IndexOf(":") + 1).Trim();
+                                start = row;
+                                f = true;
+                            }
+                            if (line.Substring(0, line.IndexOf(":")).Equals("citation"))
+                            {
+                                cite_normalized = GetNthAttribute(line, 3).Substring(GetNthAttribute(line, 3).IndexOf("= ") + 1).Trim();
+                                cite_type = GetNthAttribute(line, 1).Substring(GetNthAttribute(line, 1).IndexOf("= ") + 1).Trim();
+                                cite_id = GetNthAttribute(line, 2).Substring(GetNthAttribute(line, 2).IndexOf("= ") + 1).Trim();
                             }
                             if (line.Substring(0, line.IndexOf(":")).Equals("content") && line.Substring(line.IndexOf(":")).Length > 5)
                             { //get regulatory body
-                                content = line.Substring(line.IndexOf(":") + 1).Trim();
-                                //f = true;
+                                //Console.WriteLine(line);
+                                int pos1 = line.IndexOf("src = cid:") + 10;
+                                int pos2 = line.Substring(pos1).IndexOf(" ]");
+                                //Console.WriteLine(pos1 + "length = " + pos2);
+                                content_id = line.Substring(pos1, pos2).Trim();//, line.IndexOf(" ]")- line.IndexOf("src = ")).Trim();
+                                f = true;
                             }
-                        //}
+                        }
+                        if (line.Contains("dc:identifier:[ identifierScheme = LNI ]") || line.Contains("dc:date:"))
+                        {
+                            dc_id += peekLine.Substring(peekLine.IndexOf(":") + 1).Trim() + "; ";
+                            //Console.WriteLine("id = " + dc_id.Substring(0, dc_id.IndexOf(";") - 1));
+                            //Console.WriteLine("date = " + dc_id.Substring(dc_id.IndexOf(";") + 2).Replace(";", ""));
+                        }
                         if (line.Contains(" [ "))  //if attributes exist
                         {
                             value = line.Substring(line.IndexOf(":") + 1).Trim();
                             //Console.WriteLine("     Attribute @" + col + " > " + value);
                         }
-                        if (peekLine.Substring(0, peekLine.IndexOf(":")).Contains("#text")) // if is head content
+                        if (peekLine.Substring(0, peekLine.IndexOf(":")).Contains("#text"))
                         {
                             value = peekLine.Substring(peekLine.IndexOf(":") + 1).Trim();
                             //Console.WriteLine("     Text @" + col + " > " + value);
                         }
                         if (!value.Equals("") && !value.Equals(null))
                         {
-                            Write((row-1).ToString(), 1, row);
-                            Write(Path.GetFileNameWithoutExtension(file), 2, row); // file
-                            //if (f)
-                            //{
-                                Write(content, 3, row);
-                                Write(reg_body, 4, row);
-                            //}
+                            Write((row-1).ToString(), 1, row); //row #
+                            //Write(Path.GetFileNameWithoutExtension(file), 2, row); // source file
+                            if (f)
+                            {
+                                int count = 0;
+                                foreach(char c in dc_id)
+                                {
+                                    if (c == ';') count++;
+                                }
+                                if(count >= 2){
+                                    //Write(dc_id, 3, row);   //content id
+                                    Write(dc_id.Substring(0, dc_id.IndexOf(";") - 1).Trim(), 2, row);   //content id
+                                    Write(dc_id.Substring(dc_id.IndexOf(";") + 2).Replace(";", "").Trim(), 3, row);   //content id
+                                    if (!prop)
+                                    {
+                                        //prop = Propagate(dc_id, 3, row, start);
+                                        prop = Propagate(dc_id.Substring(0, dc_id.IndexOf(";") - 1).Trim(), 2, row, start);
+                                        prop = Propagate(dc_id.Substring(dc_id.IndexOf(";") + 2).Replace(";", "").Trim(), 3, row, start);
+                                    }
+                                }
+                                
+                                Write(reg_body, 4, row); // parent node
+                                Write(cite_id, 5, row); //subcontent id
+                                Write(cite_type, 6, row); //subcontent type
+                                Write(cite_normalized, 7, row); //subcontent normalized
+                            }
                             
-                            Write(line.Substring(0, line.IndexOf(":")), 5, row); // tag
-                            Write(System.Text.RegularExpressions.Regex.Replace(value, @"\s+", " "), 6, row); // text/attribute(s)
+                            Write(line.Substring(0, line.IndexOf(":")), 8, row); // node name
+                            Write(System.Text.RegularExpressions.Regex.Replace(value, @"\s+", " "), 9, row); // node text/attribute(s)
+                            
                             row++;
                         }
                     }
@@ -227,6 +277,51 @@ namespace xml_converter
             }
         }
 
+        private String GetNthAttribute(String value, int num)
+        {
+            int start = GetNthIndex(value, '[', num) + 1;
+            int end = GetNthIndex(value, ']', num) - 1;
+            return value.Substring(start, end - start);
+            
+        }
+
+        public int GetNthIndex(String s, char t, int n)
+        {
+            int count = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] == t)
+                {
+                    count++;
+                    if (count == n)
+                    {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        private Boolean Propagate (String value, int column, int current, int until)
+        {
+            if (current > until) //upwards
+            {
+                while (current >= until)
+                {
+                    Write(value, column, current);
+                    current--;
+                }
+            }
+            else
+            {
+                while (current <= until)
+                {
+                    Write(value, column, current);
+                    current++;
+                }
+            }
+            return true;
+        }
         // write cell data
         private void Write(String value, int col, int row)
         {
